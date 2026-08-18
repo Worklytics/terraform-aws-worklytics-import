@@ -8,14 +8,11 @@ terraform {
   backend "local" {
     path = "terraform.tfstate"
   }
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 3.0"
-    }
-  }
 }
+
+# Provider version constraints live in aws_provider_version_test.tf so the
+# integration workflow can overwrite that file to pin AWS provider majors. A
+# second required_providers block here would fail terraform init.
 
 # In real use you likely already have an AWS provider block in the root module.
 provider "aws" {

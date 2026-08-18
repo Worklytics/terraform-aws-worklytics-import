@@ -41,6 +41,8 @@ jobs:
           terraform_wrapper: false
 
       - name: 'Pin AWS provider version for test matrix'
+        # Overwrites examples/basic/aws_provider_version_test.tf (committed default
+        # pin). Do not add a second terraform.required_providers block.
         working-directory: examples/basic
         run: |
           cat > aws_provider_version_test.tf << 'TFEOF'
