@@ -15,7 +15,10 @@ terraform {
 # second required_providers block here would fail terraform init.
 
 # In real use you likely already have an AWS provider block in the root module.
+# `region` is required by AWS provider 3.x at validate time (4+/6 can infer it).
 provider "aws" {
+  region = var.aws_region
+
   assume_role {
     role_arn = var.aws_role_name == null ? null : "arn:aws:iam::${var.aws_account_id}:role/${var.aws_role_name}"
   }

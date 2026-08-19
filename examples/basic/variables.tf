@@ -3,6 +3,12 @@ variable "aws_account_id" {
   description = "AWS account in which to provision. Required to be explicitly specified, to reduce chance of inadvertently provisioning in the wrong account."
 }
 
+variable "aws_region" {
+  type        = string
+  description = "AWS region for the example provider. Required by AWS provider 3.x."
+  default     = "us-west-2"
+}
+
 variable "aws_role_name" {
   type        = string
   description = "The name of the role to assume within the AWS account. `null` if already auth'd as the desired role/user."
