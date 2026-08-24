@@ -229,3 +229,49 @@ run "rejects_invalid_s3_bucket_names_entry" {
     var.s3_bucket_names,
   ]
 }
+
+run "todo_deep_links_use_prod_host" {
+  command = apply
+
+  variables {
+    s3_bucket_name   = "existing-import-bucket"
+    todos_as_outputs = true
+  }
+
+  assert {
+    condition     = strcontains(output.todo_markdown, "https://app.worklytics.co/analytics/connect/s3-import?")
+    error_message = "TODO deep link must use production app.worklytics.co and the s3-import connect route."
+  }
+
+  assert {
+    condition     = !strcontains(output.todo_markdown, "worklytics-dev")
+    error_message = "TODO URLs must not point at worklytics-dev (or similar) by default."
+  }
+}
+
+run "todo_respects_custom_worklytics_host" {
+  command = apply
+
+  variables {
+    s3_bucket_name   = "existing-import-bucket"
+    todos_as_outputs = true
+    worklytics_host  = "acme.worklytics.co"
+  }
+
+  assert {
+    condition     = strcontains(output.todo_markdown, "https://acme.worklytics.co/analytics/connect/s3-import?")
+    error_message = "TODO deep link must use the configured worklytics_host."
+  }
+}
+
+run "rejects_worklytics_host_with_scheme" {
+  command = plan
+
+  variables {
+    worklytics_host = "https://app.worklytics.co"
+  }
+
+  expect_failures = [
+    var.worklytics_host,
+  ]
+}

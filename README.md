@@ -3,7 +3,16 @@
 [![Latest Release](https://img.shields.io/github/v/release/Worklytics/terraform-aws-worklytics-import)](https://github.com/Worklytics/terraform-aws-worklytics-import/releases/latest)
 [![tests](https://img.shields.io/github/actions/workflow/status/Worklytics/terraform-aws-worklytics-import/terraform_integration.yaml?label=tests)](https://github.com/Worklytics/terraform-aws-worklytics-import/actions?query=branch%3Amain)
 
-This module creates infra to support importing data from [Amazon S3] into Worklytics.
+This module creates infra to support **importing** data from [Amazon S3] into Worklytics
+(customer premises → Worklytics). It does **not** set up the reverse path.
+
+| Data flow | Module |
+|-----------|--------|
+| Customer premises → Worklytics | this module (`Worklytics/worklytics-import/aws`) |
+| Worklytics → customer premises | [`terraform-aws-worklytics-export`](https://github.com/Worklytics/terraform-aws-worklytics-export) (`Worklytics/worklytics-export/aws`) |
+
+Use the export module if Worklytics should write results or dumps into your account. Do not
+compose this import module as a stand-in for that.
 
 It is intended for **non-proxy** Worklytics customers (files or dumps in your AWS account that
 Worklytics should pull). If you use Worklytics with a [Psoxy] proxy, do not use this module for
@@ -73,10 +82,11 @@ provider "aws" {
 | `worklytics_tenant_sa_email` | no | `null` | SA email, documentation only |
 | `resource_name_prefix` | no | `worklytics-import-` | Prefix for created IAM / bucket names |
 | `enable_aws_s3_bucket_public_access_block` | no | `true` | Restrictive public-access block on a *created* bucket |
+| `worklytics_host` | no | `app.worklytics.co` | Hostname for generated connection URLs (prod by default; override for custom domains) |
 
 Your Worklytics tenant identity is the **numeric unique ID** of the tenant's GCP service account
-(the same value used by the AWS and Azure *export* modules). The SA email cannot be used as the
-federated `aud` claim. Obtain the ID from the Worklytics app, or:
+(the same 21-digit value used by other Worklytics Terraform modules). The SA email cannot be used
+as the federated `aud` claim. Obtain the ID from the Worklytics app, or:
 
 ```bash
 gcloud iam service-accounts describe EMAIL --format='value(uniqueId)'
@@ -107,7 +117,8 @@ on this role, authenticated by GCP as the GCP Service Account you identified wit
 `worklytics_tenant_id`.
 
 See [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
-for the general idea; this is the reverse direction of that (GCP → AWS, rather than AWS → GCP).
+for the general idea. Authentication is GCP → AWS (the tenant SA assumes this role); the *data*
+flow this module supports is still customer S3 → Worklytics.
 
 This value is useful for a few scenarios:
   - if you set a CMEK to encrypt the bucket rather than relying on AWS default, you may need to
@@ -138,6 +149,20 @@ module "worklytics-import" {
 
   worklytics_tenant_id = "123456789012345678901"
   s3_bucket_name       = "my-existing-ingest-bucket"
+}
+```
+
+### Custom Worklytics domain
+
+Connection TODO URLs default to production `https://app.worklytics.co/analytics/connect/s3-import`.
+If the tenant lives on another hostname, set `worklytics_host` (hostname only, no `https://`):
+
+```hcl
+module "worklytics-import" {
+  source = "Worklytics/worklytics-import/aws"
+
+  worklytics_tenant_id = "123456789012345678901"
+  worklytics_host      = "acme.worklytics.co"
 }
 ```
 

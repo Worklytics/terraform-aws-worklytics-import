@@ -138,12 +138,19 @@ locals {
     for id in local.all_bucket_ids : "  - `${id}`"
   ])
 
+  # App route is /analytics/connect/:integrationId; query keys match connection setting ids.
+  s3_import_connect_url = join("", [
+    "https://${var.worklytics_host}/analytics/connect/s3-import",
+    "?bucket=${urlencode(local.primary_bucket_id)}",
+    "&roleArn=${urlencode(aws_iam_role.for_worklytics_tenant.arn)}",
+  ])
+
   todo_content = <<EOT
 # Configure Data Import in Worklytics
 
 1. Ensure you're authenticated with Worklytics. Either sign-in at [https://${var.worklytics_host}](https://${var.worklytics_host})
   with your organization's SSO provider *or* request OTP link from your Worklytics support.
-2. Visit `https://${var.worklytics_host}/analytics/data-import/connect?type=AMAZON_S3&bucket=${local.primary_bucket_id}&roleArn=${aws_iam_role.for_worklytics_tenant.arn}`
+2. Visit [${local.s3_import_connect_url}](${local.s3_import_connect_url})
 3. Review any additional settings and click "Create Data Import". Repeat for any extra buckets.
 
 Import landing zones granted to Worklytics:
@@ -151,8 +158,8 @@ ${local.import_todo_rows}
 
 Alternatively, you may follow the manual instructions below:
 
-1. Visit [https://${var.worklytics_host}](https://${var.worklytics_host})
-  (or login into Worklytics, and navigate to Manage --> Import Data).
+1. Visit [https://${var.worklytics_host}/analytics/connect](https://${var.worklytics_host}/analytics/connect)
+  (or log in to Worklytics and navigate to Connect → Amazon S3 Import).
 2. Create a new Amazon S3 import connection with the following values:
   - Bucket: ${local.primary_bucket_id}
   - Role ARN: ${aws_iam_role.for_worklytics_tenant.arn}

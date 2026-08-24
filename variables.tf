@@ -9,8 +9,9 @@ variable "worklytics_tenant_id" {
   description = <<-EOT
     Numeric unique ID of your Worklytics tenant's GCP service account (obtain from the Worklytics
     app). This is a 21-digit value used as the `aud` claim of the Google ID token that AWS
-    validates when the tenant assumes the import role. It is the same identifier used by the
-    AWS/Azure export modules; it is *not* the SA email.
+    validates when the tenant assumes the import role. It is the same 21-digit identifier used
+    by other Worklytics Terraform modules (including terraform-aws-worklytics-export); it is
+    *not* the SA email. This module only grants import access (customer S3 → Worklytics).
   EOT
 
   validation {
@@ -77,8 +78,13 @@ variable "enable_aws_s3_bucket_public_access_block" {
 
 variable "worklytics_host" {
   type        = string
-  description = "Host of the Worklytics instance where the tenant resides (e.g. app.worklytics.co)."
+  description = "Hostname of the Worklytics instance (no scheme). Default app.worklytics.co; override for custom domains."
   default     = "app.worklytics.co"
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$", var.worklytics_host))
+    error_message = "`worklytics_host` must be a hostname without scheme or path (e.g. app.worklytics.co)."
+  }
 }
 
 variable "todos_as_outputs" {

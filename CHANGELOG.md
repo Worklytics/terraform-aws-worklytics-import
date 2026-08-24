@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - Unreleased
 
+### Changed
+- Document that this module is import-only (customer premises → Worklytics). Outbound data
+  (Worklytics → customer premises) uses [`terraform-aws-worklytics-export`](https://github.com/Worklytics/terraform-aws-worklytics-export).
+- Connection TODOs deep-link to production `https://app.worklytics.co/analytics/connect/s3-import`
+  (override host via `worklytics_host` for custom domains).
+
 ### Added
 - Initial module to set up an Amazon S3 landing zone for importing data into Worklytics.
 - Optional creation of an S3 bucket; existing names are reused when `s3_bucket_name` and/or
