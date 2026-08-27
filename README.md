@@ -82,6 +82,9 @@ provider "aws" {
 | `worklytics_tenant_sa_email` | no | `null` | SA email, documentation only |
 | `resource_name_prefix` | no | `worklytics-import-` | Prefix for created IAM / bucket names |
 | `enable_aws_s3_bucket_public_access_block` | no | `true` | Restrictive public-access block on a *created* bucket |
+| `enable_aws_s3_bucket_versioning` | no | `false` | Versioning on a *created* bucket |
+| `aws_s3_access_log_bucket` | no | `null` | Access-log destination for a *created* bucket |
+| `aws_s3_access_log_prefix` | no | `log/` | Prefix used when access logging is enabled |
 | `worklytics_host` | no | `app.worklytics.co` | Hostname for generated connection URLs (prod by default; override for custom domains) |
 
 Your Worklytics tenant identity is the **numeric unique ID** of the tenant's GCP service account
@@ -203,6 +206,38 @@ resource "aws_s3_bucket_public_access_block" "worklytics_import" {
 ```
 
 Existing buckets are never modified.
+
+### Enable Bucket Versioning
+
+Versioning is off by default on a *created* bucket. Enable it via:
+
+```hcl
+module "worklytics-import" {
+  source = "Worklytics/worklytics-import/aws"
+
+  worklytics_tenant_id            = "123456789012345678901"
+  enable_aws_s3_bucket_versioning = true
+}
+```
+
+Or configure `aws_s3_bucket_versioning` yourself against `module.worklytics_import.s3_bucket_id`.
+
+### Enable Access Logging
+
+Pass an existing logging destination bucket (and optional prefix) to wire up server access logs
+on a *created* bucket:
+
+```hcl
+module "worklytics-import" {
+  source = "Worklytics/worklytics-import/aws"
+
+  worklytics_tenant_id     = "123456789012345678901"
+  aws_s3_access_log_bucket = aws_s3_bucket.access_logs.id
+  aws_s3_access_log_prefix = "worklytics-import/"
+}
+```
+
+If omitted, you can still attach `aws_s3_bucket_logging` yourself using the module's bucket output.
 
 ### Add a Max Retention Policy
 

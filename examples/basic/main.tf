@@ -40,6 +40,9 @@ module "worklytics_import" {
   s3_bucket_name                           = var.s3_bucket_name
   s3_bucket_names                          = var.s3_bucket_names
   enable_aws_s3_bucket_public_access_block = var.enable_aws_s3_bucket_public_access_block
+  enable_aws_s3_bucket_versioning          = var.enable_aws_s3_bucket_versioning
+  aws_s3_access_log_bucket                 = var.aws_s3_access_log_bucket
+  aws_s3_access_log_prefix                 = var.aws_s3_access_log_prefix
   todos_as_local_files                     = var.todos_as_local_files
 }
 

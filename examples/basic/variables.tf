@@ -50,6 +50,24 @@ variable "enable_aws_s3_bucket_public_access_block" {
   default     = true
 }
 
+variable "enable_aws_s3_bucket_versioning" {
+  type        = bool
+  description = "Whether to enable versioning on a bucket created by this module."
+  default     = false
+}
+
+variable "aws_s3_access_log_bucket" {
+  type        = string
+  description = "Optional destination bucket for server access logs of a created import bucket."
+  default     = null
+}
+
+variable "aws_s3_access_log_prefix" {
+  type        = string
+  description = "Prefix for S3 server access log keys when logging is enabled."
+  default     = "log/"
+}
+
 variable "todos_as_local_files" {
   type        = bool
   description = "Whether to render TODOs as flat files."

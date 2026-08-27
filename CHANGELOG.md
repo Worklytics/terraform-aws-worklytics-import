@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (override host via `worklytics_host` for custom domains).
 
 ### Added
+- Optional `enable_aws_s3_bucket_versioning` (default `false`) and `aws_s3_access_log_bucket`
+  (default `null`) for a *created* bucket.
 - Initial module to set up an Amazon S3 landing zone for importing data into Worklytics.
 - Optional creation of an S3 bucket; existing names are reused when `s3_bucket_name` and/or
   `s3_bucket_names` are provided.

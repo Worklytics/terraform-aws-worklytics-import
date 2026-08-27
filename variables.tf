@@ -76,6 +76,33 @@ variable "enable_aws_s3_bucket_public_access_block" {
   default     = true
 }
 
+variable "enable_aws_s3_bucket_versioning" {
+  type        = bool
+  description = <<-EOT
+    Whether to enable versioning on a bucket *created* by this module. Off by default; set true
+    to opt in, or compose `aws_s3_bucket_versioning` yourself using the bucket output. Existing
+    buckets are never modified.
+  EOT
+  default     = false
+}
+
+variable "aws_s3_access_log_bucket" {
+  type        = string
+  description = <<-EOT
+    Optional destination bucket for server access logs of a *created* import bucket. When null,
+    logging is not configured (compose `aws_s3_bucket_logging` yourself if needed). Existing
+    buckets are never modified.
+  EOT
+  default     = null
+  nullable    = true
+}
+
+variable "aws_s3_access_log_prefix" {
+  type        = string
+  description = "Prefix for S3 server access log keys. Only used when `aws_s3_access_log_bucket` is set."
+  default     = "log/"
+}
+
 variable "worklytics_host" {
   type        = string
   description = "Hostname of the Worklytics instance (no scheme). Default app.worklytics.co; override for custom domains."

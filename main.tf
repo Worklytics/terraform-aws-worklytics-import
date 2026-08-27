@@ -18,10 +18,32 @@ data "aws_s3_bucket" "existing" {
   bucket = each.value
 }
 
+# Trivy (as of 2026): AVD-AWS-0090 versioning / AVD-AWS-0089 access logging.
+# Both are opt-in on a *created* bucket and off by default so this module stays a
+# thin landing zone; pass enable_aws_s3_bucket_versioning / aws_s3_access_log_bucket
+# or compose against worklytics_import_bucket. Nested blocks (not standalone
+# resources) so AWS provider 3.x still validates.
+#trivy:ignore:AVD-AWS-0090 versioning is opt-in via enable_aws_s3_bucket_versioning
+#trivy:ignore:AVD-AWS-0089 access logging is opt-in via aws_s3_access_log_bucket
 resource "aws_s3_bucket" "worklytics_import" {
   count = local.create_bucket ? 1 : 0
 
   bucket_prefix = replace(lower(var.resource_name_prefix), "_", "-")
+
+  dynamic "versioning" {
+    for_each = var.enable_aws_s3_bucket_versioning ? [true] : []
+    content {
+      enabled = true
+    }
+  }
+
+  dynamic "logging" {
+    for_each = var.aws_s3_access_log_bucket != null ? [var.aws_s3_access_log_bucket] : []
+    content {
+      target_bucket = logging.value
+      target_prefix = var.aws_s3_access_log_prefix
+    }
+  }
 
   lifecycle {
     ignore_changes = [

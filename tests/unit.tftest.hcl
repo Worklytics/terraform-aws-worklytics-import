@@ -86,6 +86,33 @@ run "creates_bucket_when_omitted" {
   }
 }
 
+run "versioning_and_logging_off_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(aws_s3_bucket.worklytics_import[0].versioning) == 0
+    error_message = "Versioning must be off by default on a created bucket."
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket.worklytics_import[0].logging) == 0
+    error_message = "Access logging must be off by default on a created bucket."
+  }
+}
+
+run "versioning_opt_in_on_created_bucket" {
+  command = plan
+
+  variables {
+    enable_aws_s3_bucket_versioning = true
+  }
+
+  assert {
+    condition     = aws_s3_bucket.worklytics_import[0].versioning[0].enabled == true
+    error_message = "enable_aws_s3_bucket_versioning = true should enable versioning on a created bucket."
+  }
+}
+
 run "reuses_existing_bucket" {
   command = plan
 
