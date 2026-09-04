@@ -1,12 +1,8 @@
 data "aws_partition" "current" {}
 
 locals {
-  existing_bucket_names = distinct(compact(concat(
-    var.s3_bucket_name != null ? [var.s3_bucket_name] : [],
-    var.s3_bucket_names
-  )))
-
-  create_bucket = length(local.existing_bucket_names) == 0
+  existing_bucket_names = distinct(compact(coalesce(var.existing_s3_bucket_names, [])))
+  create_bucket         = length(local.existing_bucket_names) == 0
 }
 
 # Existence check: plan fails if a provided bucket name does not exist. IAM policy
@@ -154,8 +150,6 @@ resource "aws_iam_role_policy_attachment" "allow_worklytics_tenant_bucket_access
 }
 
 locals {
-  tenant_identity_note = var.worklytics_tenant_sa_email == null ? var.worklytics_tenant_id : "${var.worklytics_tenant_sa_email} (${var.worklytics_tenant_id})"
-
   import_todo_rows = join("\n", [
     for id in local.all_bucket_ids : "  - `${id}`"
   ])
@@ -185,17 +179,10 @@ Alternatively, you may follow the manual instructions below:
 2. Create a new Amazon S3 import connection with the following values:
   - Bucket: ${local.primary_bucket_id}
   - Role ARN: ${aws_iam_role.for_worklytics_tenant.arn}
-  - Worklytics tenant identity: ${local.tenant_identity_note}
+  - Worklytics tenant identity: ${var.worklytics_tenant_id}
 
 Write objects you want Worklytics to ingest into the bucket(s). Worklytics authenticates to AWS
 via `AssumeRoleWithWebIdentity` as the GCP service account above, then reads (and may write
 ingest checkpoints to) those buckets.
 EOT
-}
-
-resource "local_file" "todo" {
-  count = var.todos_as_local_files ? 1 : 0
-
-  filename = "TODO - configure import in worklytics.md"
-  content  = local.todo_content
 }

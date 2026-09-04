@@ -9,9 +9,8 @@ variable "worklytics_tenant_id" {
   description = <<-EOT
     Numeric unique ID of your Worklytics tenant's GCP service account (obtain from the Worklytics
     app). This is a 21-digit value used as the `aud` claim of the Google ID token that AWS
-    validates when the tenant assumes the import role. It is the same 21-digit identifier used
-    by other Worklytics Terraform modules (including terraform-aws-worklytics-export); it is
-    *not* the SA email. This module only grants import access (customer S3 → Worklytics).
+    validates when the tenant assumes the import role. It is *not* the SA email. This module
+    only grants import access (customer S3 → Worklytics).
   EOT
 
   validation {
@@ -20,49 +19,21 @@ variable "worklytics_tenant_id" {
   }
 }
 
-variable "worklytics_tenant_sa_email" {
-  type        = string
+variable "existing_s3_bucket_names" {
+  type        = list(string)
   description = <<-EOT
-    Optional email of your Worklytics tenant's GCP service account. Used only in generated
-    instructions; federation is keyed by `worklytics_tenant_id`.
+    Existing S3 buckets to grant Worklytics access to. Null or empty creates one bucket in the
+    provider region; otherwise the module only grants access (no bucket is created).
   EOT
-  default     = null
-}
-
-variable "s3_bucket_name" {
-  type        = string
-  description = <<-EOT
-    Existing S3 bucket for the primary import landing zone. If null and `s3_bucket_names` is
-    empty, a bucket is created. Providing a name skips bucket creation; the module only grants
-    Worklytics access.
-  EOT
-  default     = null
+  default     = []
   nullable    = true
 
   validation {
-    condition     = var.s3_bucket_name == null || can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.s3_bucket_name))
-    error_message = "`s3_bucket_name` must be a valid S3 bucket name (3-63 chars, lowercase letters, numbers, dots, hyphens)."
-  }
-}
-
-variable "s3_bucket_names" {
-  type        = list(string)
-  description = <<-EOT
-    Optional additional existing S3 buckets to grant Worklytics access to. Use this when the
-    customer has several ingest locations. Singular `s3_bucket_name` still describes the primary
-    zone. A bucket is created only when both this list and `s3_bucket_name` are empty.
-
-    If this list is non-empty and `s3_bucket_name` is null, only the listed buckets are used
-    (no extra created primary).
-  EOT
-  default     = []
-
-  validation {
-    condition = alltrue([
-      for name in var.s3_bucket_names :
+    condition = var.existing_s3_bucket_names == null || alltrue([
+      for name in var.existing_s3_bucket_names :
       can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", name))
     ])
-    error_message = "Each `s3_bucket_names` entry must be a valid S3 bucket name."
+    error_message = "Each `existing_s3_bucket_names` entry must be a valid S3 bucket name."
   }
 }
 
@@ -112,19 +83,4 @@ variable "worklytics_host" {
     condition     = can(regex("^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$", var.worklytics_host))
     error_message = "`worklytics_host` must be a hostname without scheme or path (e.g. app.worklytics.co)."
   }
-}
-
-variable "todos_as_outputs" {
-  type        = bool
-  description = <<-EOT
-    Whether to render TODOs as outputs (useful if you're using Terraform Cloud/Enterprise, or
-    somewhere else where the filesystem is not readily accessible to you).
-  EOT
-  default     = false
-}
-
-variable "todos_as_local_files" {
-  type        = bool
-  description = "Whether to render TODOs as flat files."
-  default     = true
 }

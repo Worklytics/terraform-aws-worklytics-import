@@ -26,22 +26,11 @@ variable "worklytics_tenant_id" {
   description = "Numeric ID of your Worklytics tenant's service account (obtain from Worklytics App)."
 }
 
-variable "worklytics_tenant_sa_email" {
-  type        = string
-  description = "Optional email of your Worklytics tenant's GCP service account."
-  default     = null
-}
-
-variable "s3_bucket_name" {
-  type        = string
-  description = "Existing S3 bucket to reuse. If null and s3_bucket_names is empty, the module creates one."
-  default     = null
-}
-
-variable "s3_bucket_names" {
+variable "existing_s3_bucket_names" {
   type        = list(string)
-  description = "Optional additional existing S3 buckets to grant Worklytics access to."
+  description = "Existing S3 buckets to reuse. Null or empty creates one bucket."
   default     = []
+  nullable    = true
 }
 
 variable "enable_aws_s3_bucket_public_access_block" {
@@ -66,10 +55,4 @@ variable "aws_s3_access_log_prefix" {
   type        = string
   description = "Prefix for S3 server access log keys when logging is enabled."
   default     = "log/"
-}
-
-variable "todos_as_local_files" {
-  type        = bool
-  description = "Whether to render TODOs as flat files."
-  default     = true
 }

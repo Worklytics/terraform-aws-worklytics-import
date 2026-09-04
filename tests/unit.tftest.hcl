@@ -55,11 +55,8 @@ mock_provider "aws" {
   }
 }
 
-mock_provider "local" {}
-
 variables {
   worklytics_tenant_id = "123456789012345678901"
-  todos_as_local_files = false
 }
 
 run "creates_bucket_when_omitted" {
@@ -67,7 +64,7 @@ run "creates_bucket_when_omitted" {
 
   assert {
     condition     = length(aws_s3_bucket.worklytics_import) == 1
-    error_message = "Expected an S3 bucket to be created when s3_bucket_name is omitted."
+    error_message = "Expected an S3 bucket to be created when existing_s3_bucket_names is omitted or empty."
   }
 
   assert {
@@ -83,6 +80,19 @@ run "creates_bucket_when_omitted" {
   assert {
     condition     = jsondecode(aws_iam_role.for_worklytics_tenant.assume_role_policy).Statement.Principal.Federated == "accounts.google.com"
     error_message = "Role trust policy must federate Google accounts."
+  }
+}
+
+run "creates_bucket_when_existing_names_null" {
+  command = plan
+
+  variables {
+    existing_s3_bucket_names = null
+  }
+
+  assert {
+    condition     = length(aws_s3_bucket.worklytics_import) == 1
+    error_message = "Null existing_s3_bucket_names should create a bucket."
   }
 }
 
@@ -117,12 +127,12 @@ run "reuses_existing_bucket" {
   command = plan
 
   variables {
-    s3_bucket_name = "existing-import-bucket"
+    existing_s3_bucket_names = ["existing-import-bucket"]
   }
 
   assert {
     condition     = length(aws_s3_bucket.worklytics_import) == 0
-    error_message = "Should not create a bucket when s3_bucket_name is provided."
+    error_message = "Should not create a bucket when existing_s3_bucket_names is provided."
   }
 
   assert {
@@ -171,8 +181,7 @@ run "grants_access_to_additional_import_buckets" {
   command = plan
 
   variables {
-    s3_bucket_name  = "existing-import-bucket"
-    s3_bucket_names = ["second-ingest-bucket"]
+    existing_s3_bucket_names = ["existing-import-bucket", "second-ingest-bucket"]
   }
 
   assert {
@@ -195,7 +204,7 @@ run "list_only_skips_created_primary" {
   command = plan
 
   variables {
-    s3_bucket_names = ["only-from-list-bucket"]
+    existing_s3_bucket_names = ["only-from-list-bucket"]
   }
 
   assert {
@@ -233,27 +242,15 @@ run "rejects_short_tenant_id" {
   ]
 }
 
-run "rejects_invalid_s3_bucket_name" {
+run "rejects_invalid_existing_s3_bucket_names_entry" {
   command = plan
 
   variables {
-    s3_bucket_name = "NOT-VALID"
+    existing_s3_bucket_names = ["NOT-VALID"]
   }
 
   expect_failures = [
-    var.s3_bucket_name,
-  ]
-}
-
-run "rejects_invalid_s3_bucket_names_entry" {
-  command = plan
-
-  variables {
-    s3_bucket_names = ["NOT-VALID"]
-  }
-
-  expect_failures = [
-    var.s3_bucket_names,
+    var.existing_s3_bucket_names,
   ]
 }
 
@@ -261,8 +258,7 @@ run "todo_deep_links_use_prod_host" {
   command = apply
 
   variables {
-    s3_bucket_name   = "existing-import-bucket"
-    todos_as_outputs = true
+    existing_s3_bucket_names = ["existing-import-bucket"]
   }
 
   assert {
@@ -280,9 +276,8 @@ run "todo_respects_custom_worklytics_host" {
   command = apply
 
   variables {
-    s3_bucket_name   = "existing-import-bucket"
-    todos_as_outputs = true
-    worklytics_host  = "acme.worklytics.co"
+    existing_s3_bucket_names = ["existing-import-bucket"]
+    worklytics_host          = "acme.worklytics.co"
   }
 
   assert {

@@ -122,9 +122,7 @@ jobs:
           terraform apply -auto-approve \
             -var="aws_account_id=${AWS_ACCOUNT_ID}" \
             -var="resource_name_prefix=${PREFIX}" \
-            -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}" \
-            -var="worklytics_tenant_sa_email=${EXAMPLE_TENANT_SA_EMAIL}" \
-            -var="todos_as_local_files=false"
+            -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}"
           echo "resource_name_prefix=${PREFIX}" >> "$GITHUB_OUTPUT"
           echo "s3_bucket_id=$(terraform output -raw s3_bucket_id)" >> "$GITHUB_OUTPUT"
           echo "worklytics_tenant_aws_role_arn=$(terraform output -raw worklytics_tenant_aws_role_arn)" >> "$GITHUB_OUTPUT"
@@ -150,9 +148,7 @@ jobs:
             terraform destroy -auto-approve \
               -var="aws_account_id=${AWS_ACCOUNT_ID}" \
               -var="resource_name_prefix=${PREFIX}" \
-              -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}" \
-              -var="worklytics_tenant_sa_email=${EXAMPLE_TENANT_SA_EMAIL}" \
-              -var="todos_as_local_files=false"
+              -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}"
           fi
 
   # Branch protection / release.sh require a check named exactly "Terraform integration".

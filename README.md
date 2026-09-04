@@ -27,8 +27,8 @@ configuration and adapt it to your requirements.
 
 ## What it provisions
 
-1. **Optional storage** — an S3 bucket, unless you pass an existing `s3_bucket_name` and/or
-   `s3_bucket_names`. Additional ingest locations can be passed via the list.
+1. **Optional storage** — an S3 bucket, unless you pass `existing_s3_bucket_names`. Null or empty
+   creates one bucket; a non-empty list only grants access (no bucket is created).
 2. **IAM role** whose trust policy allows your Worklytics tenant's GCP service account to
    `AssumeRoleWithWebIdentity` (`issuer` / federated principal `accounts.google.com`,
    `aud` = `worklytics_tenant_id`).
@@ -72,21 +72,6 @@ provider "aws" {
 }
 ```
 
-## Inputs
-
-| Name | Required | Default | Description |
-|------|----------|---------|-------------|
-| `worklytics_tenant_id` | yes | | 21-digit unique ID of the Worklytics tenant GCP SA |
-| `s3_bucket_name` | no | `null` | Reuse this bucket as the primary zone; otherwise one is created if the list is also empty |
-| `s3_bucket_names` | no | `[]` | Extra existing import landing zones |
-| `worklytics_tenant_sa_email` | no | `null` | SA email, documentation only |
-| `resource_name_prefix` | no | `worklytics-import-` | Prefix for created IAM / bucket names |
-| `enable_aws_s3_bucket_public_access_block` | no | `true` | Restrictive public-access block on a *created* bucket |
-| `enable_aws_s3_bucket_versioning` | no | `false` | Versioning on a *created* bucket |
-| `aws_s3_access_log_bucket` | no | `null` | Access-log destination for a *created* bucket |
-| `aws_s3_access_log_prefix` | no | `log/` | Prefix used when access logging is enabled |
-| `worklytics_host` | no | `app.worklytics.co` | Hostname for generated connection URLs (prod by default; override for custom domains) |
-
 Your Worklytics tenant identity is the **numeric unique ID** of the tenant's GCP service account
 (the same 21-digit value used by other Worklytics Terraform modules). The SA email cannot be used
 as the federated `aud` claim. Obtain the ID from the Worklytics app, or:
@@ -94,44 +79,6 @@ as the federated `aud` claim. Obtain the ID from the Worklytics app, or:
 ```bash
 gcloud iam service-accounts describe EMAIL --format='value(uniqueId)'
 ```
-
-## Outputs
-
-#### `s3_bucket_id` / `s3_bucket_arn`
-The primary S3 bucket used as the import landing zone (created or reused).
-
-#### `worklytics_import_bucket`
-The Terraform `aws_s3_bucket` resource when this module created the bucket; `null` if you passed
-an existing name. Useful to compose with other `aws_s3_bucket_*` resources to configure retention,
-encryption, etc. See:
-  - [aws_s3_bucket_lifecycle_configuration](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_lifecycle_configuration)
-  - [aws_s3_bucket_server_side_encryption_configuration](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration)
-
-#### `import_buckets`
-Map of every import landing zone (the primary zone plus any `s3_bucket_names` inputs), keyed by
-bucket name. Each value has `id` and `arn`.
-
-#### `worklytics_tenant_aws_role`
-The IAM role that your Worklytics Tenant will assume before operating on your AWS infrastructure.
-
-Eg, Worklytics's infra will do the equivalent of
-[`aws sts assume-role-with-web-identity`](https://docs.aws.amazon.com/cli/latest/reference/sts/assume-role-with-web-identity.html)
-on this role, authenticated by GCP as the GCP Service Account you identified with
-`worklytics_tenant_id`.
-
-See [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
-for the general idea. Authentication is GCP → AWS (the tenant SA assumes this role); the *data*
-flow this module supports is still customer S3 → Worklytics.
-
-This value is useful for a few scenarios:
-  - if you set a CMEK to encrypt the bucket rather than relying on AWS default, you may need to
-    grant encrypt / data key creation permissions to this role.
-  - if your AWS account has additional IAM policies which would *deny* the permissions needed by
-    this role for S3/etc, use this role's ARN to add exceptions to those policies
-    (in AWS IAM logic, explicit deny has precedence over explicit allow)
-
-#### `todo_markdown`
-Rendered when `todos_as_outputs = true`.
 
 ## Compatibility
 
@@ -144,14 +91,14 @@ This module does not configure provider blocks; the caller must.
 
 ### Existing bucket
 
-Pass a name to skip bucket creation and only grant Worklytics access:
+Pass names to skip bucket creation and only grant Worklytics access:
 
 ```hcl
 module "worklytics-import" {
   source = "Worklytics/worklytics-import/aws"
 
-  worklytics_tenant_id = "123456789012345678901"
-  s3_bucket_name       = "my-existing-ingest-bucket"
+  worklytics_tenant_id     = "123456789012345678901"
+  existing_s3_bucket_names = ["my-existing-ingest-bucket"]
 }
 ```
 
@@ -171,23 +118,20 @@ module "worklytics-import" {
 
 ### Multiple import buckets
 
-Keep the singular variable for the primary landing zone and pass extra locations:
+Pass every existing landing zone in one list. A non-empty list never creates a bucket:
 
 ```hcl
 module "worklytics-import" {
   source = "Worklytics/worklytics-import/aws"
 
   worklytics_tenant_id = "123456789012345678901"
-  s3_bucket_name       = "my-existing-ingest-bucket"
-  s3_bucket_names = [
+  existing_s3_bucket_names = [
+    "my-existing-ingest-bucket",
     "my-existing-hris-bucket",
     "my-existing-calendar-bucket",
   ]
 }
 ```
-
-If `s3_bucket_names` is set and `s3_bucket_name` is omitted, only the list is used (no extra
-created primary).
 
 ### Customize Public Access Block
 
@@ -206,6 +150,27 @@ resource "aws_s3_bucket_public_access_block" "worklytics_import" {
 ```
 
 Existing buckets are never modified.
+
+### Role composition
+
+Worklytics's infra does the equivalent of
+[`aws sts assume-role-with-web-identity`](https://docs.aws.amazon.com/cli/latest/reference/sts/assume-role-with-web-identity.html)
+on `worklytics_tenant_aws_role`, authenticated by GCP as the tenant SA identified with
+`worklytics_tenant_id`. See [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation)
+for the general idea. Authentication is GCP → AWS; the *data* flow is still customer S3 →
+Worklytics.
+
+Use the role output to:
+  - grant encrypt / data-key permissions if you use a CMEK instead of AWS default encryption
+  - add exceptions to account-level deny policies (explicit deny wins over allow)
+
+Compose lifecycle or encryption against `s3_bucket_id` / `worklytics_import_bucket` when this
+module created the bucket. See:
+  - [aws_s3_bucket_lifecycle_configuration](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_lifecycle_configuration)
+  - [aws_s3_bucket_server_side_encryption_configuration](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_server_side_encryption_configuration)
+
+The `todo_markdown` output is always the remaining Worklytics console steps. Write it to a file
+from your root module if you want a local TODO (see [examples/basic-remote](examples/basic-remote/)).
 
 ### Enable Bucket Versioning
 

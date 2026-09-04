@@ -21,6 +21,7 @@ output "import_buckets" {
   value       = local.resolved_import_buckets
   description = <<-EOT
     Map of all import landing zones keyed by bucket name. Each value has `id` and `arn`.
+    Includes a created bucket and/or every `existing_s3_bucket_names` entry.
   EOT
 }
 
@@ -35,6 +36,6 @@ output "worklytics_tenant_aws_role" {
 }
 
 output "todo_markdown" {
-  value       = var.todos_as_outputs ? local.todo_content : null
-  description = "Actions that must be performed outside of Terraform (markdown format)."
+  value       = local.todo_content
+  description = "Actions that must be performed outside of Terraform (markdown format). Write this to a file from your root module if you want a local TODO."
 }
