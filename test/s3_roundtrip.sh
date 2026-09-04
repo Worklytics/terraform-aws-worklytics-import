@@ -6,7 +6,8 @@
 #   ./test/s3_roundtrip.sh \
 #     <tenant_sa_email> \
 #     <bucket_name> \
-#     <iam_role_arn>
+#     <iam_role_arn> \
+#     [<id_token_audience>]
 #
 # Prerequisites:
 #   - gcloud authenticated as an identity that can impersonate tenant_sa_email
@@ -16,6 +17,8 @@ set -euo pipefail
 TENANT_SA_EMAIL="${1:?tenant SA email required}"
 BUCKET_NAME="${2:?bucket name required}"
 IAM_ROLE_ARN="${3:?IAM role ARN required}"
+# IAM trust policy keys on accounts.google.com:aud = tenant SA unique ID.
+ID_TOKEN_AUDIENCE="${4:-${ID_TOKEN_AUDIENCE:-}}"
 
 CI_RUN="${CI_RUN:-$(date +%Y%m%dT%H%M%S)}"
 OBJECT_KEY="ci/${CI_RUN}/test.txt"
@@ -26,10 +29,14 @@ trap 'rm -rf "${WORKDIR}"' EXIT
 echo "TENANT_SA_EMAIL: ${TENANT_SA_EMAIL}"
 echo "BUCKET_NAME: ${BUCKET_NAME}"
 echo "IAM_ROLE_ARN: ${IAM_ROLE_ARN}"
+echo "ID_TOKEN_AUDIENCE: ${ID_TOKEN_AUDIENCE:-"(gcloud default)"}"
 echo "OBJECT: s3://${BUCKET_NAME}/${OBJECT_KEY}"
 
-GCP_TOKEN="$(gcloud auth print-identity-token \
-  --impersonate-service-account="${TENANT_SA_EMAIL}")"
+TOKEN_ARGS=(--impersonate-service-account="${TENANT_SA_EMAIL}")
+if [[ -n "${ID_TOKEN_AUDIENCE}" ]]; then
+  TOKEN_ARGS+=(--audiences="${ID_TOKEN_AUDIENCE}")
+fi
+GCP_TOKEN="$(gcloud auth print-identity-token "${TOKEN_ARGS[@]}")"
 
 assume_role() {
   aws sts assume-role-with-web-identity \

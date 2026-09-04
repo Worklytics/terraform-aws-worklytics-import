@@ -113,6 +113,19 @@ jobs:
           echo "id=${UNIQUE_ID}" >> "$GITHUB_OUTPUT"
           echo "Worklytics tenant SA unique ID: ${UNIQUE_ID}"
 
+      # AWS provider 6 reads s3:GetAccelerateConfiguration after CreateBucket. The CI
+      # role allows s3:GetBucket* (not GetAccelerateConfiguration). Create the landing
+      # zone with the API, then have the module grant access only.
+      - name: Create e2e ingest bucket
+        id: bucket
+        run: |
+          BUCKET="ci-w8si-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          aws s3api create-bucket \
+            --bucket "${BUCKET}" \
+            --region "${AWS_REGION}" \
+            --create-bucket-configuration LocationConstraint="${AWS_REGION}"
+          echo "name=${BUCKET}" >> "$GITHUB_OUTPUT"
+
       - name: 'Terraform - integration test examples/basic apply'
         id: terraform_apply
         working-directory: examples/basic
@@ -122,7 +135,8 @@ jobs:
           terraform apply -auto-approve \
             -var="aws_account_id=${AWS_ACCOUNT_ID}" \
             -var="resource_name_prefix=${PREFIX}" \
-            -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}"
+            -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}" \
+            -var="existing_s3_bucket_names=[\"${{ steps.bucket.outputs.name }}\"]"
           echo "resource_name_prefix=${PREFIX}" >> "$GITHUB_OUTPUT"
           echo "s3_bucket_id=$(terraform output -raw s3_bucket_id)" >> "$GITHUB_OUTPUT"
           echo "worklytics_tenant_aws_role_arn=$(terraform output -raw worklytics_tenant_aws_role_arn)" >> "$GITHUB_OUTPUT"
@@ -134,21 +148,23 @@ jobs:
           ./test/s3_roundtrip.sh \
             "${EXAMPLE_TENANT_SA_EMAIL}" \
             "${{ steps.terraform_apply.outputs.s3_bucket_id }}" \
-            "${{ steps.terraform_apply.outputs.worklytics_tenant_aws_role_arn }}"
+            "${{ steps.terraform_apply.outputs.worklytics_tenant_aws_role_arn }}" \
+            "${{ steps.tenant.outputs.id }}"
 
       - name: 'Terraform destroy'
         if: always()
         working-directory: examples/basic
         run: |
+          PREFIX="ci-w8si-${GITHUB_RUN_ID}-"
           if [ -f terraform.tfstate ] || [ -f terraform.tfstate.backup ]; then
-            PREFIX="ci-w8si-${GITHUB_RUN_ID}-"
-            if [ -n "${{ steps.terraform_apply.outputs.s3_bucket_id }}" ]; then
-              aws s3 rm "s3://${{ steps.terraform_apply.outputs.s3_bucket_id }}" --recursive || true
-            fi
             terraform destroy -auto-approve \
               -var="aws_account_id=${AWS_ACCOUNT_ID}" \
               -var="resource_name_prefix=${PREFIX}" \
-              -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}"
+              -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}" \
+              -var="existing_s3_bucket_names=[\"${{ steps.bucket.outputs.name }}\"]"
+          fi
+          if [ -n "${{ steps.bucket.outputs.name }}" ]; then
+            aws s3 rb "s3://${{ steps.bucket.outputs.name }}" --force || true
           fi
 
   # Branch protection / release.sh require a check named exactly "Terraform integration".
