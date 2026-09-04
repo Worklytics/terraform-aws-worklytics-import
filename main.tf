@@ -164,8 +164,7 @@ locals {
   todo_content = <<EOT
 # Configure Data Import in Worklytics
 
-1. Ensure you're authenticated with Worklytics. Either sign-in at [https://${var.worklytics_host}](https://${var.worklytics_host})
-  with your organization's SSO provider *or* request OTP link from your Worklytics support.
+1. Ensure you're authenticated with Worklytics. Either sign-in at [https://${var.worklytics_host}](https://${var.worklytics_host}) with your organization's SSO provider *or* request OTP link from your Worklytics support.
 2. Visit [${local.s3_import_connect_url}](${local.s3_import_connect_url})
 3. Review any additional settings and click "Create Data Import". Repeat for any extra buckets.
 
@@ -174,15 +173,12 @@ ${local.import_todo_rows}
 
 Alternatively, you may follow the manual instructions below:
 
-1. Visit [https://${var.worklytics_host}/analytics/connect](https://${var.worklytics_host}/analytics/connect)
-  (or log in to Worklytics and navigate to Connect → Amazon S3 Import).
+1. Visit [https://${var.worklytics_host}/analytics/connect](https://${var.worklytics_host}/analytics/connect) (or log in to Worklytics and navigate to Connect → Amazon S3 Import).
 2. Create a new Amazon S3 import connection with the following values:
   - Bucket: ${local.primary_bucket_id}
   - Role ARN: ${aws_iam_role.for_worklytics_tenant.arn}
   - Worklytics tenant identity: ${var.worklytics_tenant_id}
 
-Write objects you want Worklytics to ingest into the bucket(s). Worklytics authenticates to AWS
-via `AssumeRoleWithWebIdentity` as the GCP service account above, then reads (and may write
-ingest checkpoints to) those buckets.
+Write objects you want Worklytics to ingest into the bucket(s). Worklytics authenticates to AWS via `AssumeRoleWithWebIdentity` as the GCP service account above, then reads (and may write ingest checkpoints to) those buckets.
 EOT
 }

@@ -13,3 +13,7 @@ insert_final_newline = true
 [*.tf]
 indent_style = space
 indent_size = 2
+
+# Soft-wrap visually; do not insert hard wraps (same convention as psoxy).
+[*.md]
+max_line_length = off
