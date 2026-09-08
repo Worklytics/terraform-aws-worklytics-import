@@ -21,7 +21,7 @@ If it does not meet your needs, feel free to directly copy the `main.tf` file in
 ## What it provisions
 
 1. **Optional storage** — an S3 bucket, unless you pass `existing_s3_bucket_names`. Null or empty creates one bucket; a non-empty list only grants access (no bucket is created).
-2. **IAM role** whose trust policy allows your Worklytics tenant's GCP service account to `AssumeRoleWithWebIdentity` (`issuer` / federated principal `accounts.google.com`, `aud` = `worklytics_tenant_id`).
+2. **IAM role** whose trust policy allows your Worklytics tenant's GCP service account to `AssumeRoleWithWebIdentity` (`issuer` / federated principal `accounts.google.com`, `sub` = `worklytics_tenant_id`).
 3. **IAM policy** so that identity can list the bucket(s) and read/write/delete objects (ingest + checkpoints).
 
 Worklytics then exchanges a Google ID token for AWS credentials and pulls objects from the bucket (and may write ingest checkpoints).
@@ -32,7 +32,7 @@ A created bucket is placed in the region of the `aws` provider. Existing buckets
 
 from Terraform registry (once published):
 ```hcl
-module "worklytics-import" {
+module "worklytics_import" {
   source  = "Worklytics/worklytics-import/aws"
   version = "~> 0.1.0"
 
@@ -43,7 +43,7 @@ module "worklytics-import" {
 
 via GitHub:
 ```hcl
-module "worklytics-import" {
+module "worklytics_import" {
   source = "git::https://github.com/worklytics/terraform-aws-worklytics-import/?ref=v0.1.0"
 
   worklytics_tenant_id = "123456789012345678901"
@@ -77,7 +77,7 @@ This module does not configure provider blocks; the caller must.
 Pass names to skip bucket creation and only grant Worklytics access:
 
 ```hcl
-module "worklytics-import" {
+module "worklytics_import" {
   source = "Worklytics/worklytics-import/aws"
 
   worklytics_tenant_id     = "123456789012345678901"
@@ -90,7 +90,7 @@ module "worklytics-import" {
 Connection TODO URLs default to production `https://app.worklytics.co/analytics/connect/s3-import`. If the tenant lives on another hostname, set `worklytics_host` (hostname only, no `https://`):
 
 ```hcl
-module "worklytics-import" {
+module "worklytics_import" {
   source = "Worklytics/worklytics-import/aws"
 
   worklytics_tenant_id = "123456789012345678901"
@@ -103,7 +103,7 @@ module "worklytics-import" {
 Pass every existing landing zone in one list. A non-empty list never creates a bucket:
 
 ```hcl
-module "worklytics-import" {
+module "worklytics_import" {
   source = "Worklytics/worklytics-import/aws"
 
   worklytics_tenant_id = "123456789012345678901"
@@ -151,7 +151,7 @@ The `todo_markdown` output is always the remaining Worklytics console steps. Wri
 Versioning is off by default on a *created* bucket. Enable it via:
 
 ```hcl
-module "worklytics-import" {
+module "worklytics_import" {
   source = "Worklytics/worklytics-import/aws"
 
   worklytics_tenant_id            = "123456789012345678901"
@@ -166,7 +166,7 @@ Or configure `aws_s3_bucket_versioning` yourself against `module.worklytics_impo
 Pass an existing logging destination bucket (and optional prefix) to wire up server access logs on a *created* bucket:
 
 ```hcl
-module "worklytics-import" {
+module "worklytics_import" {
   source = "Worklytics/worklytics-import/aws"
 
   worklytics_tenant_id     = "123456789012345678901"
@@ -204,7 +204,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "worklytics_import" {
 | `s3:GetObject` | objects | Read ingest files |
 | `s3:PutObject` / `s3:DeleteObject` | objects | Write/rotate ingest checkpoints |
 
-The role trust policy allows Google (`accounts.google.com`) as federated principal and requires `accounts.google.com:aud` to equal your `worklytics_tenant_id`.
+The role trust policy allows Google (`accounts.google.com`) as federated principal and requires `accounts.google.com:sub` to equal your `worklytics_tenant_id`.
 
 If an existing bucket has a bucket policy that denies principals other than an explicit allow-list, add this module's `worklytics_tenant_aws_role.arn` to that list.
 

@@ -73,8 +73,8 @@ run "creates_bucket_when_omitted" {
   }
 
   assert {
-    condition     = jsondecode(aws_iam_role.for_worklytics_tenant.assume_role_policy).Statement.Condition.StringEquals["accounts.google.com:aud"] == var.worklytics_tenant_id
-    error_message = "Role trust policy aud condition must be the Worklytics tenant numeric ID."
+    condition     = jsondecode(aws_iam_role.for_worklytics_tenant.assume_role_policy).Statement.Condition.StringEquals["accounts.google.com:sub"] == var.worklytics_tenant_id
+    error_message = "Role trust policy sub condition must be the Worklytics tenant numeric ID."
   }
 
   assert {

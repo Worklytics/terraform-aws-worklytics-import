@@ -1,6 +1,6 @@
 # example of consuming this module from the Terraform Registry once published
 
-module "worklytics-import" {
+module "worklytics_import" {
   source  = "Worklytics/worklytics-import/aws"
   version = "~> 0.1.0"
 
@@ -14,5 +14,5 @@ module "worklytics-import" {
 # Optional: remaining Worklytics console steps. Requires hashicorp/local in the root module.
 resource "local_file" "todo" {
   filename = "TODO - configure import in worklytics.md"
-  content  = module.worklytics-import.todo_markdown
+  content  = module.worklytics_import.todo_markdown
 }

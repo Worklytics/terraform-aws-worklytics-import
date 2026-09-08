@@ -91,6 +91,10 @@ locals {
 resource "aws_iam_role" "for_worklytics_tenant" {
   name = "${var.resource_name_prefix}Tenant"
 
+  # Google is a first-class AWS IdP (`Federated = "accounts.google.com"`). Do not substitute
+  # an account-local OIDC provider ARN. IAM maps `accounts.google.com:sub` to the JWT `sub`
+  # claim (the SA unique ID). `accounts.google.com:aud` is JWT `azp`, not JWT `aud`.
+  # https://aws.amazon.com/blogs/security/access-aws-using-a-google-cloud-platform-native-workload-identity/
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = {
@@ -102,7 +106,7 @@ resource "aws_iam_role" "for_worklytics_tenant" {
       }
       Condition = {
         StringEquals = {
-          "accounts.google.com:aud" = var.worklytics_tenant_id
+          "accounts.google.com:sub" = var.worklytics_tenant_id
         }
       }
     }
