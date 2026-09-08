@@ -1,0 +1,182 @@
+name: terraform_integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'rc-*'
+
+# Only one integration run per ref; cancel superseded runs so applies don't pile up
+# against the shared CI AWS account.
+concurrency:
+  group: tf-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Parallel matrix: init/validate with pinned provider majors. Do NOT apply here —
+  # apply needs the shared CI account and would race other e2e runs.
+  tf_compat:
+    name: 'Terraform validate (tf ${{ matrix.terraform_version }}, aws ${{ matrix.aws_provider_version }})'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        terraform_version: [ '~1.1.0', '~1.5.0', 'latest' ]
+        aws_provider_version:
+          # ends of the supported major range; middle majors assumed OK if these pass
+          - '~> 3.0'
+          - '~> 6.0'
+    permissions:
+      contents: 'read'
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: 'setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ matrix.terraform_version }}
+          terraform_wrapper: false
+
+      - name: 'Pin AWS provider version for test matrix'
+        # Overwrites examples/basic/aws_provider_version_test.tf (committed default
+        # pin). Do not add a second terraform.required_providers block.
+        working-directory: examples/basic
+        run: |
+          cat > aws_provider_version_test.tf << 'TFEOF'
+          terraform {
+            required_providers {
+              aws = {
+                source  = "hashicorp/aws"
+                version = "${{ matrix.aws_provider_version }}"
+              }
+            }
+          }
+          TFEOF
+
+      - name: 'Terraform init / validate'
+        working-directory: examples/basic
+        run: |
+          terraform init
+          terraform validate
+
+  # Branch protection currently requires this exact check name (copied from
+  # terraform-aws-worklytics-export). Apply once on latest TF rather than matrixing
+  # applies against the shared CI account.
+  tf_e2e:
+    name: Terraform integration (on tf latest)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    env:
+      CI_SA_EMAIL: ${{ secrets.GCP_SERVICE_ACCOUNT || vars.GCP_SERVICE_ACCOUNT || 'gh-actions-tf-aws-import@worklytics-corp.iam.gserviceaccount.com' }}
+      GCP_IDENTITY_POOL: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER || vars.GCP_WORKLOAD_IDENTITY_PROVIDER || 'projects/432357880585/locations/global/workloadIdentityPools/github-actions/providers/github' }}
+      EXAMPLE_TENANT_SA_EMAIL: w8s-import-tf-ci@worklytics-ci.iam.gserviceaccount.com
+      AWS_REGION: us-west-2
+      AWS_ACCOUNT_ID: '626567183302'
+      AWS_CI_ROLE_ARN: arn:aws:iam::626567183302:role/gh_action_ci_agent_import
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: 'setup Terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: latest
+          terraform_wrapper: false
+
+      - id: 'auth-gcp'
+        name: 'Authenticate to Google Cloud'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_IDENTITY_POOL }}
+          service_account: ${{ env.CI_SA_EMAIL }}
+
+      - name: 'Set up Cloud SDK'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_CI_ROLE_ARN }}
+          role-session-name: github_ci
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve Worklytics tenant SA unique ID
+        id: tenant
+        run: |
+          UNIQUE_ID="$(gcloud iam service-accounts describe "${{ env.EXAMPLE_TENANT_SA_EMAIL }}" \
+            --format='value(uniqueId)')"
+          echo "id=${UNIQUE_ID}" >> "$GITHUB_OUTPUT"
+          echo "Worklytics tenant SA unique ID: ${UNIQUE_ID}"
+
+      # AWS provider 6 reads s3:GetAccelerateConfiguration after CreateBucket. The CI
+      # role allows s3:GetBucket* (not GetAccelerateConfiguration). Create the landing
+      # zone with the API, then have the module grant access only.
+      - name: Create e2e ingest bucket
+        id: bucket
+        run: |
+          BUCKET="ci-w8si-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          aws s3api create-bucket \
+            --bucket "${BUCKET}" \
+            --region "${AWS_REGION}" \
+            --create-bucket-configuration LocationConstraint="${AWS_REGION}"
+          echo "name=${BUCKET}" >> "$GITHUB_OUTPUT"
+
+      - name: 'Terraform - integration test examples/basic apply'
+        id: terraform_apply
+        working-directory: examples/basic
+        run: |
+          PREFIX="ci-w8si-${GITHUB_RUN_ID}-"
+          terraform init
+          terraform apply -auto-approve \
+            -var="aws_account_id=${AWS_ACCOUNT_ID}" \
+            -var="resource_name_prefix=${PREFIX}" \
+            -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}" \
+            -var="existing_s3_bucket_names=[\"${{ steps.bucket.outputs.name }}\"]"
+          echo "resource_name_prefix=${PREFIX}" >> "$GITHUB_OUTPUT"
+          echo "s3_bucket_id=$(terraform output -raw s3_bucket_id)" >> "$GITHUB_OUTPUT"
+          echo "worklytics_tenant_aws_role_arn=$(terraform output -raw worklytics_tenant_aws_role_arn)" >> "$GITHUB_OUTPUT"
+
+      - name: 'S3 read/write as federated GCP identity'
+        env:
+          CI_RUN: ${{ github.run_id }}_${{ github.run_attempt }}
+        run: |
+          ./test/s3_roundtrip.sh \
+            "${EXAMPLE_TENANT_SA_EMAIL}" \
+            "${{ steps.terraform_apply.outputs.s3_bucket_id }}" \
+            "${{ steps.terraform_apply.outputs.worklytics_tenant_aws_role_arn }}" \
+            "${{ steps.tenant.outputs.id }}"
+
+      - name: 'Terraform destroy'
+        if: always()
+        working-directory: examples/basic
+        run: |
+          PREFIX="ci-w8si-${GITHUB_RUN_ID}-"
+          if [ -f terraform.tfstate ] || [ -f terraform.tfstate.backup ]; then
+            terraform destroy -auto-approve \
+              -var="aws_account_id=${AWS_ACCOUNT_ID}" \
+              -var="resource_name_prefix=${PREFIX}" \
+              -var="worklytics_tenant_id=${{ steps.tenant.outputs.id }}" \
+              -var="existing_s3_bucket_names=[\"${{ steps.bucket.outputs.name }}\"]"
+          fi
+          if [ -n "${{ steps.bucket.outputs.name }}" ]; then
+            aws s3 rb "s3://${{ steps.bucket.outputs.name }}" --force || true
+          fi
+
+  # Branch protection / release.sh require a check named exactly "Terraform integration".
+  integration_gate:
+    name: Terraform integration
+    needs: [tf_compat, tf_e2e]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require compat matrix + e2e success
+        run: |
+          echo "tf_compat=${{ needs.tf_compat.result }}"
+          echo "tf_e2e=${{ needs.tf_e2e.result }}"
+          test "${{ needs.tf_compat.result }}" = "success"
+          test "${{ needs.tf_e2e.result }}" = "success"
