@@ -92,8 +92,9 @@ resource "aws_iam_role" "for_worklytics_tenant" {
   name = "${var.resource_name_prefix}Tenant"
 
   # Google is a first-class AWS IdP (`Federated = "accounts.google.com"`). Bind the
-  # tenant SA unique ID on `sub` (same name in IAM and the JWT). Export historically
-  # uses `aud`, which for these tokens is JWT `azp` — the same unique ID, worse name.
+  # tenant SA unique ID on `sub` (same name in IAM and the JWT). We could also bind
+  # `accounts.google.com:aud` (JWT `azp`, same unique ID; what export uses); `sub` is
+  # clearest.
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = {
