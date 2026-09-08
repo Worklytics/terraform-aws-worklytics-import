@@ -106,9 +106,11 @@ resource "aws_iam_role" "for_worklytics_tenant" {
         Federated = "accounts.google.com"
       }
       Condition = {
+        # AWS condition key names ≠ JWT claim names when Google sets `azp`:
+        #   accounts.google.com:aud  → JWT azp (Google; SA unique ID)
+        #   accounts.google.com:sub  → JWT sub (Google; SA unique ID)
+        #   accounts.google.com:oaud → JWT aud (Worklytics-chosen at mint; not bound)
         StringEquals = {
-          # IAM `aud` is JWT `azp` (Google-set unique ID). JWT `aud` is Worklytics-chosen
-          # at mint time (`oaud`); we do not know it here.
           "accounts.google.com:aud" = var.worklytics_tenant_id
           "accounts.google.com:sub" = var.worklytics_tenant_id
         }
