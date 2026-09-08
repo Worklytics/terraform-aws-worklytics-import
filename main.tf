@@ -91,10 +91,11 @@ locals {
 resource "aws_iam_role" "for_worklytics_tenant" {
   name = "${var.resource_name_prefix}Tenant"
 
-  # Google is a first-class AWS IdP (`Federated = "accounts.google.com"`). Do not substitute
-  # an account-local OIDC provider ARN. IAM maps `accounts.google.com:sub` to the JWT `sub`
-  # claim (the SA unique ID). `accounts.google.com:aud` is JWT `azp`, not JWT `aud`.
-  # https://aws.amazon.com/blogs/security/access-aws-using-a-google-cloud-platform-native-workload-identity/
+  # Same Google federation as terraform-aws-worklytics-export / psoxy. `Federated =
+  # "accounts.google.com"` is a first-class AWS IdP (no account OIDC provider ARN).
+  # IAM `accounts.google.com:aud` is JWT `azp`, which GCP sets to the SA unique ID on
+  # generateIdToken tokens. Do not require `oaud` (JWT `aud`): that audience is chosen
+  # at mint time and is not a module input.
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = {
@@ -106,7 +107,7 @@ resource "aws_iam_role" "for_worklytics_tenant" {
       }
       Condition = {
         StringEquals = {
-          "accounts.google.com:sub" = var.worklytics_tenant_id
+          "accounts.google.com:aud" = var.worklytics_tenant_id
         }
       }
     }
