@@ -107,7 +107,10 @@ resource "aws_iam_role" "for_worklytics_tenant" {
       }
       Condition = {
         StringEquals = {
+          # IAM `aud` is JWT `azp` (Google-set unique ID). JWT `aud` is Worklytics-chosen
+          # at mint time (`oaud`); we do not know it here.
           "accounts.google.com:aud" = var.worklytics_tenant_id
+          "accounts.google.com:sub" = var.worklytics_tenant_id
         }
       }
     }

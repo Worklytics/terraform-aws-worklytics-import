@@ -21,7 +21,7 @@ If it does not meet your needs, feel free to directly copy the `main.tf` file in
 ## What it provisions
 
 1. **Optional storage** — an S3 bucket, unless you pass `existing_s3_bucket_names`. Null or empty creates one bucket; a non-empty list only grants access (no bucket is created).
-2. **IAM role** whose trust policy allows your Worklytics tenant's GCP service account to `AssumeRoleWithWebIdentity` (`issuer` / federated principal `accounts.google.com`, `aud` = `worklytics_tenant_id`).
+2. **IAM role** whose trust policy allows your Worklytics tenant's GCP service account to `AssumeRoleWithWebIdentity` (`issuer` / federated principal `accounts.google.com`, `aud` and `sub` = `worklytics_tenant_id`).
 3. **IAM policy** so that identity can list the bucket(s) and read/write/delete objects (ingest + checkpoints).
 
 Worklytics then exchanges a Google ID token for AWS credentials and pulls objects from the bucket (and may write ingest checkpoints).
@@ -204,7 +204,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "worklytics_import" {
 | `s3:GetObject` | objects | Read ingest files |
 | `s3:PutObject` / `s3:DeleteObject` | objects | Write/rotate ingest checkpoints |
 
-The role trust policy allows Google (`accounts.google.com`) as federated principal and requires `accounts.google.com:aud` to equal your `worklytics_tenant_id`.
+The role trust policy allows Google (`accounts.google.com`) as federated principal and requires `accounts.google.com:aud` and `accounts.google.com:sub` to equal your `worklytics_tenant_id`.
 
 If an existing bucket has a bucket policy that denies principals other than an explicit allow-list, add this module's `worklytics_tenant_aws_role.arn` to that list.
 

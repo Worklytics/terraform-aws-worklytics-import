@@ -8,8 +8,8 @@ variable "worklytics_tenant_id" {
   type        = string
   description = <<-EOT
     Numeric unique ID of your Worklytics tenant's GCP service account (obtain from the Worklytics
-    app). This is a 21-digit value used as the `aud` claim of the Google ID token that AWS
-    validates when the tenant assumes the import role. It is *not* the SA email. This module
+    app). This is a 21-digit value AWS checks as both `accounts.google.com:aud` (JWT `azp`) and
+    `accounts.google.com:sub` on the Google ID token. It is *not* the SA email. This module
     only grants import access (customer S3 → Worklytics).
   EOT
 

@@ -17,7 +17,7 @@ set -euo pipefail
 TENANT_SA_EMAIL="${1:?tenant SA email required}"
 BUCKET_NAME="${2:?bucket name required}"
 IAM_ROLE_ARN="${3:?IAM role ARN required}"
-# IAM trust policy keys on accounts.google.com:aud = tenant SA unique ID.
+# IAM trust policy keys on accounts.google.com:aud and :sub = tenant SA unique ID.
 ID_TOKEN_AUDIENCE="${4:-${ID_TOKEN_AUDIENCE:-}}"
 
 CI_RUN="${CI_RUN:-$(date +%Y%m%dT%H%M%S)}"
