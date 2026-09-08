@@ -2,6 +2,11 @@ variable "resource_name_prefix" {
   type        = string
   description = "Prefix to give to names of infra created by this module, where applicable."
   default     = "worklytics-import-"
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9.-]*$", replace(lower(var.resource_name_prefix), "_", "-")))
+    error_message = "`resource_name_prefix` must produce a valid S3 bucket prefix after lowercasing and replacing '_' with '-'. Use only letters, numbers, dots, and hyphens; start with a letter/number."
+  }
 }
 
 variable "worklytics_tenant_id" {
